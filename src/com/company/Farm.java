@@ -2,9 +2,25 @@ package com.company;
 
 import mpi.*;
 
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+
 public class Farm {
     //mogoce spemeni nazaj na static
     static int tasks_num = 10;
+    //----------------Konfiguracija programa--------------------------
+    int n = 2;  //st razcepov
+    boolean graphicsVisible = true;    //vklopi grafiko
+    boolean resizeAndZoom = true;      //vklopi zoom in resize
+    //running mode: 1. sekvencno 2. paralelno 3. distributed 4.meritve in primerjave
+    int runningMode = 1;
+    //----------------------------------------------------------------
+    double windowHeight = 600;  //sirina okna
+    double windowWidth = 800;   //visina okna
+    double startx;  //levo ogljisce x
+    double starty;  //levo ogljisce y
+    double lenght; //dolzina zacetne stranice
+    boolean flag = false;       //flag za spremembo zooma
 
     static public void main(String[] args) throws MPIException {
         MPI.Init(args);
@@ -74,6 +90,8 @@ public class Farm {
 
     }
 
+
+
     static void worker(int rank){
         int task_done = 0;
         int work_done = 0;
@@ -96,6 +114,22 @@ public class Farm {
 
         }
         System.out.println("Worker " + rank + " is done with job: Made " +work_done + " work." );
+    }
+
+    public void setStartingPoint(){
+        startx = (this.windowWidth - this.lenght)/2;
+        double newY = this.windowHeight - (this.windowHeight - (int)((double)lenght*Math.sqrt(3.0)/2.0)) / 2  ;
+        starty = newY - (newY/25);
+        //(height - visina trikotnika)/2
+    }
+
+    public void computeLength(){
+        double max_tri_height = windowHeight - (windowHeight/10);
+        lenght = max_tri_height/(Math.sin(Math.PI/3));
+
+        if (windowWidth <= lenght){
+            windowWidth = lenght + 50 ;
+        }
     }
 }
 
