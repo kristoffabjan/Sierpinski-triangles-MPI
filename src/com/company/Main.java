@@ -2,21 +2,17 @@ package com.company;
 
 import mpi.MPI;
 import mpi.MPIException;
-import mpi.MaxInt;
 import mpi.Status;
 
 import java.util.Arrays;
-import java.util.Vector;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Stream;
 
 public class Main {
     //mogoce spemeni nazaj na static
     //----------------Konfiguracija programa--------------------------
     static int n = 10;  //st razcepov
-    static  int cores = 6;
+    static  int cores;
 
     static int triangles_num = (int) Math.pow( 3, n );
     static boolean graphicsVisible = true;    //vklopi grafiko
