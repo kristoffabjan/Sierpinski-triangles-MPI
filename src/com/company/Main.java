@@ -15,7 +15,7 @@ import java.util.stream.Stream;
 public class Main {
     //mogoce spemeni nazaj na static
     //----------------Konfiguracija programa--------------------------
-    static int n = 2;  //st razcepov
+    static int n = 10;  //st razcepov
     static  int cores = 6;
 
     static int triangles_num = (int) Math.pow( 3, n );
@@ -32,16 +32,12 @@ public class Main {
     static boolean flag = false;       //flag za spremembo zooma
     //1 = task
     //3 = complete triangle
-    //31 = first task of triangle call
-    //32 = 2 task of triangle call
-    //33 = 3 task of triangle call
     static public void main(String[] args) throws MPIException {
         MPI.Init(args);
 
         int myrank = MPI.COMM_WORLD.Rank();
         int size = MPI.COMM_WORLD.Size() ;
         cores = size;
-        System.out.println("size +" + size);
         int time = 2;
 
         if (myrank == 0){
@@ -86,7 +82,7 @@ public class Main {
            if (tag == 3 ){
                triangles.add(Arrays.copyOfRange(incoming_task, 0, 7));
                i++;
-               System.out.println("Triangle with x coord = " + incoming_task[0] + " , " + incoming_task[1] + " .saved in queue. Triangle = " + triangles.size());
+               //System.out.println("Triangle with x coord = " + incoming_task[0] + " , " + incoming_task[1] + " .saved in queue. Triangle = " + triangles.size());
                //send another task if there is any left
               if ( !tasks.isEmpty() ){
                   try {
@@ -139,7 +135,6 @@ public class Main {
                    }
                }
            }
-            //System.out.println("Triangles= " + triangles.size() + " Tasks = " + tasks.size());
         }
 
         System.out.println("Done with work. there are " + triangles.size() + " triangles done!!!!!!!!!!!!!!!!!!!!");
@@ -158,23 +153,6 @@ public class Main {
                 //MPI.COMM_WORLD.Send(choke_array, 0, choke_array.length, MPI.DOUBLE, j, 404);
             }
         }
-
-        //MPI.COMM_WORLD.Bcast(choke_array, 0, choke_array.length, MPI.DOUBLE, 0);
-
-//        for (int j = 0; j < workers; j++) {
-//            MPI.COMM_WORLD.Recv(incoming_task, 0,incoming_task.length,MPI.DOUBLE, MPI.ANY_SOURCE, MPI.ANY_TAG);
-//            source = (int)incoming_task[5];
-//            tag = (int)incoming_task[6];
-//            if (tag == 3){
-//                tasks.add(incoming_task);
-//                System.out.println("Triangle completed");
-//            }else {
-//                System.out.println("No more tasks : Queue size(tasks): " + tasks.size() + "  From worker "+ source);
-//            }
-//
-//            MPI.COMM_WORLD.Send(choke_array, 0,choke_array.length,MPI.DOUBLE, source, tag);
-//            //0.0, 0.0,0.0,0.0,0.0,0.0,0.0
-//        }
         System.out.println("Farmer did that many work: " + tasks_done);
 
     }
@@ -215,17 +193,6 @@ public class Main {
                                 x+len/2,y,len/2,curr_lvl+1,max_lvl,(double) rank, (double) 1};                 //third
                         MPI.COMM_WORLD.Send(three_tasks, 0,three_tasks.length, MPI.DOUBLE, 0, source);
                     }
-//                //System.out.println("Worker "+ rank + " make 1 razcep" + tag);
-//
-//                    double[] p2 = new double[]{x + len/4,y - (int)((Math.sin((double)Math.PI/3)) * (double)(len/2)),
-//                            len/2,curr_lvl + 1,max_lvl,(double) rank, (double) 32};
-//                    MPI.COMM_WORLD.Send(p2, 0,p2.length, MPI.DOUBLE, 0, source);
-//                //System.out.println("Worker "+ rank + " make 2 razcep");
-//
-//                    double[] p3 = new double[]{x+len/2,y,len/2,curr_lvl+1,max_lvl,(double) rank, (double) 33};
-//                //System.out.println("Worker "+ rank + " make 3 razcep");
-//                    MPI.COMM_WORLD.Send(p3, 0,p3.length, MPI.DOUBLE, 0, source);
-//                tasks_done++;
             }
             MPI.COMM_WORLD.Recv(packet, 0, packet.length, MPI.DOUBLE, 0, MPI.ANY_TAG);
             tag = (int) packet[6];

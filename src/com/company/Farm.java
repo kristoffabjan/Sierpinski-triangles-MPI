@@ -2,6 +2,7 @@ package com.company;
 
 import mpi.*;
 
+import javax.swing.plaf.IconUIResource;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -48,7 +49,6 @@ public class Farm {
         Status status = new Status();
         int choke = Integer.MAX_VALUE;
         System.out.println("Farmer started shuffling tasks: ....");
-
         for (int j = 0; j < tasks_num; j++) {
             //random int
             tasks[j] = (int)(5 + (Math.random() * 30));
