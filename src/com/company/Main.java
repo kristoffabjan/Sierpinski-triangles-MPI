@@ -41,11 +41,13 @@ public class Main {
         }else{
             worker1(myrank);
         }
+
         MPI.Finalize();
     }
 
     static void farmer1(int workers){
         //bag of tasks
+        long start = System.currentTimeMillis();
         computeLength();
         setStartingPoint();
         int tag;
@@ -150,6 +152,9 @@ public class Main {
             }
         }
         System.out.println("Farmer did that many work: " + tasks_done);
+
+        long end = System.currentTimeMillis() - start;
+        System.out.println("Completion time: " + end + "ms = " + end/1000 + "s");
 
     }
 
