@@ -11,7 +11,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 public class Main {
     //mogoce spemeni nazaj na static
     //----------------Konfiguracija programa--------------------------
-    static int n = 10;  //st razcepov
+    static int n = 5;  //st razcepov
     static  int cores;
 
     static int triangles_num = (int) Math.pow( 3, n );
@@ -29,23 +29,45 @@ public class Main {
     //1 = task
     //3 = complete triangle
     static public void main(String[] args) throws MPIException {
-        MPI.Init(args);
+        //testing mode
+        if(runningMode == 4){
+            for (int i = 5; i < 15; i++) {
+                MPI.Init(args);
 
-        int myrank = MPI.COMM_WORLD.Rank();
-        int size = MPI.COMM_WORLD.Size() ;
-        cores = size;
-        int time = 2;
+                int myrank = MPI.COMM_WORLD.Rank();
+                int size = MPI.COMM_WORLD.Size() ;
+                cores = size;
+                int time = 2;
 
-        if (myrank == 0){
-            farmer1(size - 1);
+                if (myrank == 0){
+                    farmer(size - 1);
+                }else{
+                    worker(myrank);
+                }
+
+                MPI.Finalize();
+                System.out.println();
+            }
         }else{
-            worker1(myrank);
-        }
+            //normal mode
+            MPI.Init(args);
 
-        MPI.Finalize();
+            int myrank = MPI.COMM_WORLD.Rank();
+            int size = MPI.COMM_WORLD.Size() ;
+            cores = size;
+            int time = 2;
+
+            if (myrank == 0){
+                farmer(size - 1);
+            }else{
+                worker(myrank);
+            }
+
+            MPI.Finalize();
+        }
     }
 
-    static void farmer1(int workers){
+    static void farmer(int workers){
         //bag of tasks
         long start = System.currentTimeMillis();
         computeLength();
@@ -66,7 +88,7 @@ public class Main {
                                         0.0, 0.0,0.0,0.0,0.0,0.0,0.0};
         //tag 1 = task to do
         MPI.COMM_WORLD.Send(first_packet, 0, first_packet.length, MPI.DOUBLE, random_worker, 1);
-        System.out.println("first packet sent to " + random_worker);
+        //System.out.println("first packet sent to " + random_worker);
 
         int i = 0;
         while ( triangles.size() < triangles_num ){
@@ -135,7 +157,7 @@ public class Main {
            }
         }
 
-        System.out.println("Done with work. there are " + triangles.size() + " triangles done!!!!!!!!!!!!!!!!!!!!");
+        //System.out.println("Done with work. there are " + triangles.size() + " triangles done!!!!!!!!!!!!!!!!!!!!");
 
         double[] choke_array = new double[]{0.0, 0.0,0.0,0.0,0.0,0.0,404.0,
                 0.0, 0.0,0.0,0.0,0.0,0.0,0.0,
@@ -158,7 +180,7 @@ public class Main {
 
     }
 
-    static void worker1(int rank){
+    static void worker(int rank){
         int triangles_done = 0;
         double[] packet = new double[21];
         MPI.COMM_WORLD.Recv(packet, 0,packet.length, MPI.DOUBLE, 0, MPI.ANY_TAG);
@@ -199,7 +221,7 @@ public class Main {
             tag = (int) packet[6];
         }
 
-        System.out.println("Worker " + rank + " is done with job: Made " + triangles_done + " triangles." );
+        //System.out.println("Worker " + rank + " is done with job: Made " + triangles_done + " triangles." );
     }
 
     public void sierpinski(double x, double y, double len, double level, double max_level){
@@ -214,7 +236,23 @@ public class Main {
         }
     }
 
-    static void farmer(int workers){
+    static void setStartingPoint(){
+        startx = (windowWidth - lenght)/2;
+        double newY = windowHeight - (windowHeight - (int)((double)lenght*Math.sqrt(3.0)/2.0)) / 2  ;
+        starty = newY - (newY/25);
+        //(height - visina trikotnika)/2
+    }
+
+    static void computeLength(){
+        double max_tri_height = windowHeight - (windowHeight/10);
+        lenght = max_tri_height/(Math.sin(Math.PI/3));
+
+        if (windowWidth <= lenght){
+            windowWidth = lenght + 50 ;
+        }
+    }
+
+    static void farmer404(int workers){
         int[] tasks = new int[triangles_num];
         int[] results = new int[triangles_num];
         int[] msg = new int[3];
@@ -268,7 +306,7 @@ public class Main {
 
 
 
-    static void worker(int rank){
+    static void worker404(int rank){
         int task_done = 0;
         int work_done = 0;
         int[] msg = new int[3];
@@ -292,19 +330,5 @@ public class Main {
         System.out.println("Worker " + rank + " is done with job: Made " +work_done + " work." );
     }
 
-    static void setStartingPoint(){
-        startx = (windowWidth - lenght)/2;
-        double newY = windowHeight - (windowHeight - (int)((double)lenght*Math.sqrt(3.0)/2.0)) / 2  ;
-        starty = newY - (newY/25);
-        //(height - visina trikotnika)/2
-    }
 
-    static void computeLength(){
-        double max_tri_height = windowHeight - (windowHeight/10);
-        lenght = max_tri_height/(Math.sin(Math.PI/3));
-
-        if (windowWidth <= lenght){
-            windowWidth = lenght + 50 ;
-        }
-    }
 }
