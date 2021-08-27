@@ -4,28 +4,27 @@ import mpi.MPI;
 import mpi.MPIException;
 import mpi.Status;
 
+import javax.swing.*;
+import java.awt.*;
 import java.util.Arrays;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 public class Main {
-    //mogoce spemeni nazaj na static
     //----------------Konfiguracija programa--------------------------
-    static int n = 10;  //st razcepov
+    static int n = 5;  //!! awt doesnt allow rendering for n>8, beacuse of int coordinates
     static  int cores = 8;
+    static boolean gui = true;
 
     static int triangles_num = (int) Math.pow( 3, n );
-    static boolean graphicsVisible = true;    //vklopi grafiko
-    static boolean resizeAndZoom = true;      //vklopi zoom in resize
-    //running mode: 1. sekvencno 2. paralelno 3. distributed 4.meritve in primerjave
-    static int runningMode = 4;
+    //running mode: 1. MPI with gui 4.meritve in primerjave
+    static int runningMode = 1;
     //----------------------------------------------------------------
     static double windowHeight = 600;  //sirina okna
     static double windowWidth = 800;   //visina okna
     static double startx;  //levo ogljisce x
     static double starty;  //levo ogljisce y
     static double lenght; //dolzina zacetne stranice
-    static boolean flag = false;       //flag za spremembo zooma
     //1 = task
     //3 = complete triangle
     static public void main(String[] args) throws MPIException {
@@ -39,10 +38,9 @@ public class Main {
                 int myrank = MPI.COMM_WORLD.Rank();
                 int size = MPI.COMM_WORLD.Size() ;
                 cores = size;
-                int time = 2;
 
                 if (myrank == 0){
-                    long timing = farmer(size - 1);
+                    long timing = farmer(size - 1, gui);
                     System.out.println(n + ", " + timing + ", distributed");
                 }else{
                     worker(myrank);
@@ -59,11 +57,8 @@ public class Main {
             int myrank = MPI.COMM_WORLD.Rank();
             int size = MPI.COMM_WORLD.Size() ;
             cores = size;
-            int time = 2;
-
             if (myrank == 0){
-                long timing = farmer(size - 1);
-                System.out.println(n + ", " + timing + ", distributed");
+                farmer(size - 1,gui );
             }else{
                 worker(myrank);
             }
@@ -72,19 +67,19 @@ public class Main {
         }
     }
 
-    static long farmer(int workers){
+    static long farmer(int workers, boolean gui){
         //bag of tasks
         long start = System.currentTimeMillis();
+        int tag;
+
         computeLength();
         setStartingPoint();
-        int tag;
-        int source;
-        BlockingQueue<double[]> tasks = new LinkedBlockingQueue<double[]>();
-        BlockingQueue<double[]> triangles = new LinkedBlockingQueue<double[]>();
+
+        BlockingQueue<double[]> tasks = new LinkedBlockingQueue<>();
+        BlockingQueue<double[]> triangles = new LinkedBlockingQueue<>();
         //public Task(double x, double y, double length, double level, double max_level, int source, int tag)
         double[] incoming_task = new double[21];
-        double[] outgoing_task = new double[21];
-        int tasks_done = 0;
+        double[] outgoing_task;
 
         //send first task to random worker
         int random_worker = (int) ((Math.random() * ((workers + 1) - 1)) + 1);
@@ -93,20 +88,16 @@ public class Main {
                                         0.0, 0.0,0.0,0.0,0.0,0.0,0.0};
         //tag 1 = task to do
         MPI.COMM_WORLD.Send(first_packet, 0, first_packet.length, MPI.DOUBLE, random_worker, 1);
-        //System.out.println("first packet sent to " + random_worker);
 
         int i = 0;
         while ( triangles.size() < triangles_num && i < triangles_num ){
             MPI.COMM_WORLD.Recv(incoming_task, 0,incoming_task.length,MPI.DOUBLE, MPI.ANY_SOURCE,MPI.ANY_TAG);
-            double curr_lvl = (int) incoming_task[3];
-            double max_lvl = (int) incoming_task[4];
-            source = (int) incoming_task[5];
             tag = (int) incoming_task[6];
 
             //koncani trikotnik
            if (tag == 3 ){
                //do not fill queue while testing
-               if( runningMode != 4){
+               if( runningMode == 1){
                    triangles.add(Arrays.copyOfRange(incoming_task, 0, 7));
                }
                i++;
@@ -119,7 +110,6 @@ public class Main {
                       random_worker = (int) ((Math.random() * ((workers + 1) - 1)) + 1);
                       MPI.COMM_WORLD.Send(outgoing_task, 0, outgoing_task.length, MPI.DOUBLE, random_worker, 1);
                   } catch (InterruptedException e) {
-                      //e.printStackTrace();
                       System.out.println("No more tasks in Q. In worker proces elif");
                   }
               }
@@ -183,12 +173,24 @@ public class Main {
         }
         //System.out.println("Farmer did that many work: " + tasks_done);
         long end = System.currentTimeMillis() - start;
-        //System.out.println("n, " + end + " , distributed");
+
+        if (gui){
+            //JFrame.setDefaultLookAndFeelDecorated(true);
+            JFrame frame = new JFrame("Distributed Sierpinski triangles ");
+            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            frame.setBackground(Color.green);
+            frame.setResizable(false);
+            frame.setSize(800, 600);
+
+            Triangles_panel panel = new Triangles_panel(triangles);
+            frame.add(panel);
+            frame.pack();
+            frame.setVisible(true);
+        }
         return end;
     }
 
     static void worker(int rank){
-        int triangles_done = 0;
         double[] packet = new double[21];
         MPI.COMM_WORLD.Recv(packet, 0,packet.length, MPI.DOUBLE, 0, MPI.ANY_TAG);
         int tag = (int) packet[6];
@@ -208,46 +210,24 @@ public class Main {
                                                     0.0, 0.0,0.0,0.0,0.0,0.0,0.0,
                                                     0.0, 0.0,0.0,0.0,0.0,0.0,0.0};
                 MPI.COMM_WORLD.Send(triangle, 0, triangle.length, MPI.DOUBLE, 0, 3);
-                triangles_done++;
             }else {
                     //kot tag posljemo id workerja, da nam bo poslan nazaj isti task
                     //are those tasks final triangles or another tasks
-                    if ((curr_lvl + 1) == max_lvl){
-                        double[] three_tasks = new double[]{x,y,len/2,curr_lvl +1, max_lvl, (double) rank, (double) 1,   //first task
-                                x + len/4,y - (int)((Math.sin((double)Math.PI/3)) * (double)(len/2)), len/2,curr_lvl + 1,max_lvl,(double) rank, (double) 1,           //second
-                                x+len/2,y,len/2,curr_lvl+1,max_lvl,(double) rank, (double) 1};                 //third
-                        MPI.COMM_WORLD.Send(three_tasks, 0,three_tasks.length, MPI.DOUBLE, 0, source);
-                    }else{
-                        double[] three_tasks = new double[]{x,y,len/2,curr_lvl +1, max_lvl, (double) rank, (double) 1,   //first task
-                                x + len/4,y - (int)((Math.sin((double)Math.PI/3)) * (double)(len/2)), len/2,curr_lvl + 1,max_lvl,(double) rank, (double) 1,           //second
-                                x+len/2,y,len/2,curr_lvl+1,max_lvl,(double) rank, (double) 1};                 //third
-                        MPI.COMM_WORLD.Send(three_tasks, 0,three_tasks.length, MPI.DOUBLE, 0, source);
-                    }
+                    double[] three_tasks = new double[]{x,y,len/2,curr_lvl +1, max_lvl, (double) rank, (double) 1,   //first task
+                            x + len/4,y - (int)((Math.sin(Math.PI/3)) * (len/2)), len/2,curr_lvl + 1,max_lvl,(double) rank, (double) 1,           //second
+                            x+len/2,y,len/2,curr_lvl+1,max_lvl,(double) rank, (double) 1};                 //third
+                    MPI.COMM_WORLD.Send(three_tasks, 0,three_tasks.length, MPI.DOUBLE, 0, source);
             }
             MPI.COMM_WORLD.Recv(packet, 0, packet.length, MPI.DOUBLE, 0, MPI.ANY_TAG);
             tag = (int) packet[6];
         }
-
         //System.out.println("Worker " + rank + " is done with job: Made " + triangles_done + " triangles." );
-    }
-
-    public void sierpinski(double x, double y, double len, double level, double max_level){
-        if (level == max_level){
-            if (true){
-                //this.getChildren().add(trikotnikPolygon(x,y,len));
-            }
-        }else{
-            sierpinski(x,y,len/2,level +1, max_level);
-            sierpinski(x + len/4,y - (int)((Math.sin((double)Math.PI/3)) * (double)(len/2)),len/2,level +1, max_level);
-            sierpinski(x + len/2,y,len/2,level +1, max_level);
-        }
     }
 
     static void setStartingPoint(){
         startx = (windowWidth - lenght)/2;
-        double newY = windowHeight - (windowHeight - (int)((double)lenght*Math.sqrt(3.0)/2.0)) / 2  ;
+        double newY = windowHeight - (windowHeight - (int)(lenght*Math.sqrt(3.0)/2.0)) / 2  ;
         starty = newY - (newY/25);
-        //(height - visina trikotnika)/2
     }
 
     static void computeLength(){
@@ -258,84 +238,4 @@ public class Main {
             windowWidth = lenght + 50 ;
         }
     }
-
-    static void farmer404(int workers){
-        int[] tasks = new int[triangles_num];
-        int[] results = new int[triangles_num];
-        int[] msg = new int[3];
-        int i;
-        int[] temp = new int[3];
-        int tag ,who;
-        Status status = new Status();
-        int choke = Integer.MAX_VALUE;
-        System.out.println("Farmer started shuffling tasks: ....");
-
-        for (int j = 0; j < triangles_num; j++) {
-            //random int
-            tasks[j] = (int)(5 + (Math.random() * 30));
-        }
-        System.out.println("Tasks created...");
-
-        for (i = 0; i < workers ; i++) {
-            //poslji farmerjem z id 1-5
-            msg[0] = tasks[i];
-            msg[1] = 0;
-            msg[2] = i;
-            MPI.COMM_WORLD.Send(msg,0,msg.length,MPI.INT, msg[2] + 1,msg[2] );
-        }
-        System.out.println("First task sent to all workers");
-
-        while (i < triangles_num){
-            MPI.COMM_WORLD.Recv(msg, 0,msg.length,MPI.INT, MPI.ANY_SOURCE,MPI.ANY_TAG);
-            tag = msg[2];
-            who = msg[1];
-            results[tag] = msg[0];
-            msg[0] = tasks[i];
-            System.out.println("Farmer sent msg to " + who);
-            System.out.println();
-            MPI.COMM_WORLD.Send(msg,0,msg.length,MPI.INT, who, i);
-            i++;
-        }
-
-
-        for (int j = 0; j < workers; j++) {
-            MPI.COMM_WORLD.Recv(temp, 0,temp.length,MPI.INT, MPI.ANY_SOURCE, MPI.ANY_TAG);
-            who = temp[1];
-            tag = temp[2];
-            //tag je v bistvu i, tag narasca
-            results[tag] = temp[0];
-            int[] choke_array = new int[]{0,0,choke};
-            MPI.COMM_WORLD.Send(choke_array, 0,choke_array.length,MPI.INT, who,tag);
-            System.out.println("Work is done");
-        }
-
-    }
-
-
-
-    static void worker404(int rank){
-        int task_done = 0;
-        int work_done = 0;
-        int[] msg = new int[3];
-        System.out.println("Worker " + rank + " started working...");
-
-
-        MPI.COMM_WORLD.Recv(msg,0,msg.length,MPI.INT,0, MPI.ANY_TAG);
-        //tag je st taska
-        int tag = msg[2];
-        while (tag != Integer.MAX_VALUE){
-            work_done += msg[0];
-            task_done++;
-            msg[1] = rank;
-            System.out.println("Worker " + rank + " working.....");
-            MPI.COMM_WORLD.Send(msg, 0, msg.length, MPI.INT, 0,tag);
-            System.out.println("sent by worker " + rank);
-            MPI.COMM_WORLD.Recv(msg,0,msg.length,MPI.INT,0, MPI.ANY_TAG);
-            tag = msg[2];
-
-        }
-        System.out.println("Worker " + rank + " is done with job: Made " +work_done + " work." );
-    }
-
-
 }
